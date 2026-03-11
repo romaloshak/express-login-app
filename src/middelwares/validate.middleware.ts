@@ -8,13 +8,9 @@ import { ZodError } from 'zod';
  * @returns A middleware handler to validate requests
  */
 
-export const validate = (schema: ZodType) => async (req: Request, res: Response, next: NextFunction) => {
+export const validateMiddleware = (schema: ZodType) => async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		await schema.parseAsync({
-			body: req.body,
-			query: req.query,
-			params: req.params,
-		});
+		await schema.parseAsync(req.body);
 		next();
 	} catch (error) {
 		if (error instanceof ZodError) {

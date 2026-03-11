@@ -1,18 +1,13 @@
 import bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
-import type { QueryResult } from 'pg';
-import pool from '../../db.js';
 import type { TypedRequestBody } from '../../types/express.js';
-import type { CreateUserInput, User } from '../../types/User.type.js';
+import type { CreateUserInput, UserType } from '../../types/User.type.js';
+import type { AuthRequest } from '../middelwares/auth.middleware.js';
 import * as UserService from '../services/user.service.js';
 
 export const getUsers = async (_: Request, res: Response) => {
-	try {
-		const result: QueryResult<User> = await pool.query('SELECT * FROM users');
-		res.json(result.rows);
-	} catch (_err) {
-		res.status(500).send('Ошибка сервера');
-	}
+	const users: UserType[] = await UserService.getUsersFromDb();
+	res.status(200).json(users);
 };
 
 export const createUser = async (req: TypedRequestBody<CreateUserInput>, res: Response) => {
@@ -25,4 +20,24 @@ export const createUser = async (req: TypedRequestBody<CreateUserInput>, res: Re
 	});
 
 	res.status(201).json(newUser);
+};
+
+export const getProfile = async (req: AuthRequest, res: Response) => {
+	try {
+		const userId = req.user?.userId;
+
+		if (!userId) {
+			return res.status(404).json({ message: 'userId error' });
+		}
+
+		const result: UserType = await UserService.findUserById(userId);
+
+		if (!result) {
+			return res.status(404).json({ message: 'Пользователь не найден' });
+		}
+
+		res.json(result);
+	} catch (_error) {
+		res.status(500).json({ message: 'Ошибка сервера' });
+	}
 };

@@ -1,15 +1,73 @@
-import * as UserService from '../services/user.service.js';
+import bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+import { env } from '../../utils/env.types.js';
+import { generateTokens } from '../../utils/jwt.js';
+import * as UserService from '../services/user.service.js';
 
 export const login = async (req: Request, res: Response) => {
-  try {
-    const {email, password, } = req.body;
-    const user = await UserService.findUserByEmail(email);
+	const { email, password } = req.body;
+	const user = await UserService.findUserByEmailForLogin(email);
+	const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    if (!user) {
-      return res.status(401).json({ message: 'Неверный email или пароль' });
-    }
-  } catch{
+	if (!user || !isPasswordValid) {
+		return res.status(401).json({ message: 'Ошибка авторизации' });
+	}
 
-  }
-}
+	const { accessToken, refreshToken } = generateTokens({ userId: user.id });
+
+	await UserService.updateRefreshToken(user.id, refreshToken);
+
+	res.cookie('refreshToken', refreshToken, {
+		httpOnly: true,
+		secure: true,
+		maxAge: 3 * 24 * 60 * 60 * 1000,
+	});
+
+	res.json({ accessToken, user: { id: user.id, email: user.email } });
+};
+
+export const refresh = async (req: Request, res: Response) => {
+	const { refreshToken } = req.cookies;
+
+	if (!refreshToken) return res.sendStatus(401);
+
+	try {
+		const payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { userId: string };
+
+		const user = await UserService.findUserByIdForRefreshToken(payload.userId);
+
+		if (!user || user.refresh_token !== refreshToken) {
+			return res.sendStatus(403);
+		}
+
+		const tokens = generateTokens({ userId: user.id });
+		await UserService.updateRefreshToken(user.id, tokens.refreshToken);
+
+		res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
+		res.json({ accessToken: tokens.accessToken });
+	} catch (_error) {
+		res.sendStatus(403);
+	}
+};
+
+export const logout = async (req: Request, res: Response) => {
+	try {
+		const { refreshToken } = req.cookies;
+
+		if (refreshToken) {
+			const payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { userId: number };
+			await UserService.updateRefreshToken(payload.userId, null);
+		}
+
+		res.clearCookie('refreshToken', {
+			httpOnly: true,
+			secure: true,
+			sameSite: 'strict',
+		});
+
+		res.status(200).json({ message: 'Успешный выход' });
+	} catch (_error) {
+		res.status(500).json({ message: 'Ошибка при выходе' });
+	}
+};
