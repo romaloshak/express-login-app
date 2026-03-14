@@ -38,6 +38,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run Migrations
+        run: npm run migrate up
+        env:
+          # node-pg-migrate ищет DATABASE_URL или параметры подключения
+          DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/${{ secrets.POSTGRES_DB }}
+          # Если используешь отдельные переменные, библиотека тоже их поймет:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
       - name: Run Tests
         env:
           POSTGRES_HOST: localhost

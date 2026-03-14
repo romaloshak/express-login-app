@@ -9,13 +9,15 @@
 		"cookie-parser": "^1.4.7",
 		"express": "^5.2.1",
 		"jsonwebtoken": "^9.0.3",
+		"node-pg-migrate": "^8.0.4",
 		"nodemon": "^3.1.14",
-		"pg": "^8.18.0",
+		"pg": "^8.20.0",
 		"zod": "^4.3.6"
 	},
 	"scripts": {
 		"dev": "nodemon --watch src --exec npx tsx server.ts",
-		"test": "vitest"
+		"test": "vitest",
+		"migrate": "node-pg-migrate -m migrations"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.6",
