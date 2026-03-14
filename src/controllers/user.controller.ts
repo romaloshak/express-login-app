@@ -1,25 +1,11 @@
-import bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
-import type { TypedRequestBody } from '../../types/express.js';
-import type { CreateUserInput, UserType } from '../../types/User.type.js';
 import type { AuthRequest } from '../middelwares/auth.middleware.js';
 import * as UserService from '../services/user.service.js';
+import type { UserType } from '../types/User.type.js';
 
 export const getUsers = async (_: Request, res: Response) => {
 	const users: UserType[] = await UserService.getUsersFromDb();
 	res.status(200).json(users);
-};
-
-export const createUser = async (req: TypedRequestBody<CreateUserInput>, res: Response) => {
-	const salt = await bcrypt.genSalt(10);
-	const hashedPassword = await bcrypt.hash(req.body.password, salt);
-
-	const newUser = await UserService.createUserInDb({
-		...req.body,
-		password: hashedPassword,
-	});
-
-	res.status(201).json(newUser);
 };
 
 export const getProfile = async (req: AuthRequest, res: Response) => {

@@ -1,5 +1,5 @@
 import pool from '../../db.js';
-import type { CreateUserInput } from '../../types/User.type.js';
+import type { CreateUserInput } from '../types/User.type.js';
 
 export const getUsersFromDb = async () => {
 	const query = 'SELECT * FROM users';

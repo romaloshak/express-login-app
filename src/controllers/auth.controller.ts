@@ -1,9 +1,23 @@
 import bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { env } from '../../utils/env.types.js';
-import { generateTokens } from '../../utils/jwt.js';
 import * as UserService from '../services/user.service.js';
+import type { TypedRequestBody } from '../types/express.js';
+import type { CreateUserInput } from '../types/User.type.js';
+import { env } from '../utils/env.types.js';
+import { generateTokens } from '../utils/jwt.js';
+
+export const registration = async (req: TypedRequestBody<CreateUserInput>, res: Response) => {
+	const salt = await bcrypt.genSalt(10);
+	const hashedPassword = await bcrypt.hash(req.body.password, salt);
+
+	const newUser = await UserService.createUserInDb({
+		...req.body,
+		password: hashedPassword,
+	});
+
+	res.status(201).json(newUser);
+};
 
 export const login = async (req: Request, res: Response) => {
 	const { email, password } = req.body;
@@ -24,7 +38,7 @@ export const login = async (req: Request, res: Response) => {
 		maxAge: 3 * 24 * 60 * 60 * 1000,
 	});
 
-	res.json({ accessToken, user: { id: user.id, email: user.email } });
+	res.status(200).json({ accessToken, user: { id: user.id, email: user.email } });
 };
 
 export const refresh = async (req: Request, res: Response) => {

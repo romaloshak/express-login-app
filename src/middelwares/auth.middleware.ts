@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { env } from '../../utils/env.types.js';
+import { env } from '../utils/env.types.js';
 
 export type AuthRequest = Request & {
 	user?: {
