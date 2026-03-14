@@ -17,7 +17,7 @@
 	"scripts": {
 		"dev": "nodemon --watch src --exec npx tsx server.ts",
 		"test": "vitest",
-		"migrate": "node-pg-migrate -m migrations"
+		"migrate": "node-pg-migrate -m migrations -r ts-node/register"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.6",
