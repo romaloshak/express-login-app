@@ -6,10 +6,10 @@ dotenv.config();
 const envSchema = z.object({
 	JWT_ACCESS_SECRET: z.string().min(32, 'Секрет слишком короткий!'),
 	JWT_REFRESH_SECRET: z.string().min(32),
-	DB_HOST: z.string(),
-	DB_NAME: z.string(),
-	DB_DATABASE: z.string(),
-	DB_PASSWORD: z.string(),
+	POSTGRES_HOST: z.string(),
+	POSTGRES_USER: z.string(),
+	POSTGRES_DB: z.string(),
+	POSTGRES_PASSWORD: z.string(),
 	PORT: z.string().default('3000').transform(Number),
 	NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
