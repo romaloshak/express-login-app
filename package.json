@@ -9,15 +9,17 @@
 		"cookie-parser": "^1.4.7",
 		"express": "^5.2.1",
 		"jsonwebtoken": "^9.0.3",
+		"multer": "^2.1.1",
 		"node-pg-migrate": "^8.0.4",
 		"nodemon": "^3.1.14",
 		"pg": "^8.20.0",
 		"zod": "^4.3.6"
 	},
 	"scripts": {
-		"dev": "nodemon --watch src --exec npx tsx server.ts",
+		"dev": "npm run migrate up && nodemon --watch src --exec npx tsx server.ts",
 		"test": "vitest",
-		"migrate": "node-pg-migrate -m migrations -r tsx"
+		"migrate": "node-pg-migrate -m migrations -r tsx",
+		"build": "tsc"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.6",
@@ -25,6 +27,7 @@
 		"@types/cookie-parser": "^1.4.10",
 		"@types/express": "^5.0.6",
 		"@types/jsonwebtoken": "^9.0.10",
+		"@types/multer": "^2.1.0",
 		"@types/node": "^25.3.5",
 		"@types/pg": "^8.18.0",
 		"@types/supertest": "^7.2.0",

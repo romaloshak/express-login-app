@@ -42,24 +42,24 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const refresh = async (req: Request, res: Response) => {
-	const { refreshToken } = req.cookies;
+	const { refreshToken: refreshTokenCookie } = req.cookies;
 
-	if (!refreshToken) return res.sendStatus(401);
+	if (!refreshTokenCookie) return res.sendStatus(401);
 
 	try {
-		const payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { userId: string };
+		const payload = jwt.verify(refreshTokenCookie, env.JWT_REFRESH_SECRET) as { userId: string };
 
 		const user = await UserService.findUserByIdForRefreshToken(payload.userId);
 
-		if (!user || user.refresh_token !== refreshToken) {
+		if (!user || user.refresh_token !== refreshTokenCookie) {
 			return res.sendStatus(403);
 		}
 
-		const tokens = generateTokens({ userId: user.id });
-		await UserService.updateRefreshToken(user.id, tokens.refreshToken);
+		const { refreshToken, accessToken } = generateTokens({ userId: user.id });
+		await UserService.updateRefreshToken(user.id, refreshToken);
 
-		res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
-		res.json({ accessToken: tokens.accessToken });
+		res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true });
+		res.json({ accessToken });
 	} catch (_error) {
 		res.sendStatus(403);
 	}
