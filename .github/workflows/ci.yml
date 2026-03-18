@@ -43,7 +43,6 @@ jobs:
         env:
           # node-pg-migrate ищет DATABASE_URL или параметры подключения
           DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/${{ secrets.POSTGRES_DB }}
-          # Если используешь отдельные переменные, библиотека тоже их поймет:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 8000
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
