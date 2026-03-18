@@ -6,7 +6,7 @@ import authRoutes from './src/routes/auth.routes.js';
 import profileRoutes from './src/routes/profile.routes.js';
 import userRoutes from './src/routes/user.routes.js';
 
-const port = process.env.POSTGRES_PORT || 8000;
+const port = process.env.POSTGRES_PORT;
 
 const app: Express = express();
 app.use(express.json());
