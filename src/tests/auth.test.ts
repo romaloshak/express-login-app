@@ -1,13 +1,13 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pool from '../../db.js';
-import app from '../../server.js';
+import app from "../../server.js";
 
 describe('Auth Integration Tests', () => {
 	const testUser = {
-		email: 'test@example.com',
+		email: 'auth-test@example.com',
 		password: 'Password123!',
-		username: 'testuser',
+		username: 'authtestuser',
 	};
 
 	const removeTestUser = async () => {
@@ -54,5 +54,20 @@ describe('Auth Integration Tests', () => {
 
 		expect(res.status).toBe(401);
 		expect(res.body).not.toHaveProperty('accessToken');
+	});
+
+	it('should login and get user profile', async () => {
+		const res = await request(app).post('/login').send({
+			email: testUser.email,
+			password: testUser.password,
+		});
+
+		const accessToken = res.body.accessToken;
+
+		expect(res.status).toBe(200);
+
+		const profile_res = await request(app).get('/profile').send().set('Authorization', `Bearer ${accessToken}`);
+
+		expect(profile_res.status).toBe(200);
 	});
 });

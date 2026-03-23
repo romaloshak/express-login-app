@@ -8,37 +8,52 @@ import { env } from '../utils/env.types.js';
 import { generateTokens } from '../utils/jwt.js';
 
 export const registration = async (req: TypedRequestBody<CreateUserInput>, res: Response) => {
-	const salt = await bcrypt.genSalt(10);
-	const hashedPassword = await bcrypt.hash(req.body.password, salt);
+	try {
+		const salt = await bcrypt.genSalt(10);
+		const hashedPassword = await bcrypt.hash(req.body.password, salt);
 
-	const newUser = await UserService.createUserInDb({
-		...req.body,
-		password: hashedPassword,
-	});
+		const newUser = await UserService.createUserInDb({
+			...req.body,
+			password: hashedPassword,
+		});
 
-	res.status(201).json(newUser);
+		res.status(201).json(newUser);
+	} catch (error) {
+		console.error('Registration error:', error);
+		res.status(500).json({ message: 'Registration failed' });
+	}
 };
 
 export const login = async (req: Request, res: Response) => {
-	const { email, password } = req.body;
-	const user = await UserService.findUserByEmailForLogin(email);
-	const isPasswordValid = await bcrypt.compare(password, user.password);
+	try {
+		const { email, password } = req.body;
+		const user = await UserService.findUserByEmailForLogin(email);
 
-	if (!user || !isPasswordValid) {
-		return res.status(401).json({ message: 'Ошибка авторизации' });
+		if (!user) {
+			return res.status(401).json({ message: 'Ошибка авторизации' });
+		}
+
+		const isPasswordValid = await bcrypt.compare(password, user.password);
+
+		if (!isPasswordValid) {
+			return res.status(401).json({ message: 'Ошибка авторизации' });
+		}
+
+		const { accessToken, refreshToken } = generateTokens({ userId: user.id });
+
+		await UserService.updateRefreshToken(user.id, refreshToken);
+
+		res.cookie('refreshToken', refreshToken, {
+			httpOnly: true,
+			secure: true,
+			maxAge: 3 * 24 * 60 * 60 * 1000,
+		});
+
+		res.status(200).json({ accessToken, user: { id: user.id, email: user.email } });
+	} catch (error) {
+		console.error('Login error:', error);
+		res.status(500).json({ message: 'Internal server error' });
 	}
-
-	const { accessToken, refreshToken } = generateTokens({ userId: user.id });
-
-	await UserService.updateRefreshToken(user.id, refreshToken);
-
-	res.cookie('refreshToken', refreshToken, {
-		httpOnly: true,
-		secure: true,
-		maxAge: 3 * 24 * 60 * 60 * 1000,
-	});
-
-	res.status(200).json({ accessToken, user: { id: user.id, email: user.email } });
 };
 
 export const refresh = async (req: Request, res: Response) => {
