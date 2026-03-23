@@ -18,7 +18,7 @@
 	"scripts": {
 		"dev": "nodemon --watch src --exec npx tsx server.ts",
 		"test": "vitest",
-		"migrate": "node-pg-migrate -m migrations -r tsx",
+		"migrate": "node-pg-migrate",
 		"build": "tsc"
 	},
 	"devDependencies": {

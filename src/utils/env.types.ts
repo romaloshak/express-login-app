@@ -10,8 +10,13 @@ const envSchema = z.object({
 	POSTGRES_USER: z.string(),
 	POSTGRES_DB: z.string(),
 	POSTGRES_PASSWORD: z.string(),
-	PORT: z.string().default('3000').transform(Number),
-	NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+	UPLOAD_DIR: z.string().default('./uploads'),
+	MAX_FILE_SIZE: z.coerce
+		.number()
+		.positive()
+		.default(20 * 1024 * 1024),
+	DATABASE_URL: z.string().optional(),
+	UPLOAD_PORT: z.string().default('3000'),
 });
 
 const parsed = envSchema.safeParse(process.env);
