@@ -25,6 +25,20 @@ const storage = multer.diskStorage({
 	},
 });
 
+const chunkStorage = multer.diskStorage({
+	destination: (_req, _file, cb) => {
+		cb(null, env.CHUNKS_DIR);
+	},
+	filename: (req, file, cb) => {
+		const {
+			body: { currentChunk },
+		} = req;
+		const filename = `${file.originalname}.${currentChunk}`;
+		const ext = path.extname(file.originalname);
+		cb(null, `${filename}${ext}`);
+	},
+});
+
 const fileFilter = (_req: unknown, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
 	if (ALLOWED_TYPES.includes(file.mimetype)) {
 		cb(null, true);
@@ -40,6 +54,13 @@ const uploadConfig = {
 		fileSize: env.MAX_FILE_SIZE,
 	},
 };
+const uploadChunkConfig = {
+	storage: chunkStorage,
+	fileFilter,
+	limits: {
+		fileSize: env.MAX_FILE_SIZE,
+	},
+};
 
 export const uploadSingle = multer(uploadConfig).single('file');
 export const uploadArray = multer(uploadConfig).array('files', 10);
@@ -49,6 +70,7 @@ export const uploadFields = multer(uploadConfig).fields([
 ]);
 
 export const uploadAny = multer(uploadConfig).any();
+export const uploadChunkAny = multer(uploadChunkConfig).any();
 
 export const handleUpload = (req: Request, res: Response, next: NextFunction) => {
 	uploadAny(req, res, (err) => {

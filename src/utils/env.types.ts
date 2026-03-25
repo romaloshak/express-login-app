@@ -11,6 +11,7 @@ const envSchema = z.object({
 	POSTGRES_DB: z.string(),
 	POSTGRES_PASSWORD: z.string(),
 	UPLOAD_DIR: z.string().default('./uploads'),
+	CHUNKS_DIR: z.string().default('./chunks'),
 	MAX_FILE_SIZE: z.coerce
 		.number()
 		.positive()

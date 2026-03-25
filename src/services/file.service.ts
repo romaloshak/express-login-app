@@ -12,7 +12,10 @@ export type FileRecord = {
 	created_at: Date;
 };
 
-type CreateFileParams = Pick<FileRecord, 'user_id' | 'original_name' | 'stored_name' | 'mime_type' | 'size' | 'path'>;
+export type CreateFileParams = Pick<
+	FileRecord,
+	'user_id' | 'original_name' | 'stored_name' | 'mime_type' | 'size' | 'path'
+>;
 
 export const uploadFileInDb = async (fileRecord: CreateFileParams) => {
 	const { mime_type, user_id, original_name, stored_name, size, path: filePath } = fileRecord;
