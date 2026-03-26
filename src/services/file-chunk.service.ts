@@ -2,7 +2,7 @@ import pool from '../../db.js';
 import type { UploadChunkStatus } from '../types/File.type.js';
 import type { FileRecord } from './file.service.js';
 
-type initRecordType = Pick<FileRecord, 'original_name' | 'size'> & {
+export type initRecordType = Pick<FileRecord, 'original_name' | 'size'> & {
 	chunk_size: number;
 	total_chunks: number;
 };
@@ -33,12 +33,13 @@ export const updateMergeStatusInDb = async (status: UploadChunkStatus, uploadId:
 		SET status = $1, 
         updated_at = NOW() 
     WHERE id = $2
-		RETURNING id,
+		RETURNING status;
 	`;
 
 	const values = [status, uploadId];
 
 	const result = await pool.query(query, values);
+	return result.rows[0];
 };
 
 export const uploadChunkInDb = async (upload_id: string, chunkRecord: UploadChunkType) => {

@@ -1,11 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pipeline } from 'node:stream/promises'; // Специальная утилита для безопасной склейки
+import { pipeline } from 'node:stream/promises';
+import { fileURLToPath } from 'node:url'; // Специальная утилита для безопасной склейки
 
 export async function mergeFiles(uploadId: string, originalName: string, totalChunks: number) {
+	console.log(uploadId, originalName, totalChunks);
 	// 1. Путь, куда сохраним финальный результат
 	// Используем uploadId в названии, чтобы избежать конфликтов имен
-	const finalFilePath = path.join(__dirname, '../uploads', `${uploadId}_${originalName}`);
+	const __filename = fileURLToPath(import.meta.url);
+	const __dirname = path.dirname(__filename);
+	const finalFilePath = path.join(__dirname, '../../uploads', `${uploadId}.${originalName}`);
 
 	// 2. Создаем "приемник" — поток для записи в финальный файл
 	const writeStream = fs.createWriteStream(finalFilePath);
@@ -13,7 +17,7 @@ export async function mergeFiles(uploadId: string, originalName: string, totalCh
 	try {
 		// 3. Перебираем чанки строго по порядку от 0 до totalChunks
 		for (let i = 0; i < totalChunks; i++) {
-			const chunkPath = path.join(__dirname, '../chunks', `${uploadId}_${i}`);
+			const chunkPath = path.join(__dirname, '../../chunks', `${i}.${uploadId}.${originalName}`);
 
 			// Проверяем, существует ли файл чанка (на всякий случай)
 			if (!fs.existsSync(chunkPath)) {
@@ -37,7 +41,7 @@ export async function mergeFiles(uploadId: string, originalName: string, totalCh
 
 		// 7. Наводим порядок: удаляем временные чанки
 		for (let i = 0; i < totalChunks; i++) {
-			const chunkPath = path.join(__dirname, '../chunks', `${uploadId}_${i}`);
+			const chunkPath = path.join(__dirname, '../../chunks', `${i}.${uploadId}.${originalName}`);
 			await fs.promises.unlink(chunkPath);
 		}
 

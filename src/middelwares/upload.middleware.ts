@@ -1,7 +1,7 @@
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
+import path from 'node:path';
 import type { NextFunction, Request, Response } from 'express';
 import multer from 'multer';
-import path from 'path';
 import { env } from '../utils/env.types.js';
 
 const ALLOWED_TYPES = [
@@ -31,11 +31,11 @@ const chunkStorage = multer.diskStorage({
 	},
 	filename: (req, file, cb) => {
 		const {
-			body: { currentChunk },
+			body: { uploadId, chunk_index },
 		} = req;
-		const filename = `${file.originalname}.${currentChunk}`;
-		const ext = path.extname(file.originalname);
-		cb(null, `${filename}${ext}`);
+
+		const filename = `${chunk_index}.${uploadId}.${file.originalname}`;
+		cb(null, `${filename}`);
 	},
 });
 
@@ -56,7 +56,6 @@ const uploadConfig = {
 };
 const uploadChunkConfig = {
 	storage: chunkStorage,
-	fileFilter,
 	limits: {
 		fileSize: env.MAX_FILE_SIZE,
 	},
@@ -71,6 +70,29 @@ export const uploadFields = multer(uploadConfig).fields([
 
 export const uploadAny = multer(uploadConfig).any();
 export const uploadChunkAny = multer(uploadChunkConfig).any();
+
+/** После `.any()` файлы только в `req.files`; контроллеры чанков ожидают `req.file`. */
+export const handleChunkUpload = (req: Request, res: Response, next: NextFunction) => {
+	uploadChunkAny(req, res, (err) => {
+		if (err instanceof multer.MulterError) {
+			if (err.code === 'LIMIT_FILE_SIZE') {
+				return res.status(413).json({ message: 'Файл слишком большой' });
+			}
+			return res.status(400).json({ message: err.message });
+		}
+		if (err) {
+			return res.status(400).json({ message: (err as Error).message });
+		}
+
+		const files = req.files;
+		if (!files || !Array.isArray(files) || files.length === 0) {
+			return next();
+		}
+
+		req.file = files[0];
+		next();
+	});
+};
 
 export const handleUpload = (req: Request, res: Response, next: NextFunction) => {
 	uploadAny(req, res, (err) => {

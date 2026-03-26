@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Тест загрузки по чанкам</title>
+	<style>
+		:root { font-family: system-ui, sans-serif; line-height: 1.45; }
+		body { max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+		label { display: block; margin-top: 0.75rem; font-weight: 600; }
+		input[type="text"], input[type="password"], input[type="number"] { width: 100%; max-width: 28rem; box-sizing: border-box; }
+		button { margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
+		pre { background: #f4f4f5; padding: 0.75rem; overflow: auto; font-size: 0.85rem; border-radius: 6px; }
+		.hint { color: #52525b; font-size: 0.9rem; margin-top: 0.25rem; }
+	</style>
+</head>
+<body>
+	<h1>Загрузка файла чанками</h1>
+	<p class="hint">
+		Откройте страницу с того же хоста, что и API (например <code>http://localhost:8000/chunk-upload-test.html</code>), чтобы не упираться в CORS.
+	</p>
+
+	<label for="baseUrl">Базовый URL API</label>
+	<input type="text" id="baseUrl" value="http://localhost:8000" autocomplete="off" />
+
+	<h2>Авторизация</h2>
+	<label for="email">Email</label>
+	<input type="text" id="email" autocomplete="username" />
+	<label for="password">Пароль</label>
+	<input type="password" id="password" autocomplete="current-password" />
+	<button type="button" id="btnLogin">Войти</button>
+	<label for="token">Или вставьте access token (Bearer)</label>
+	<input type="text" id="token" placeholder="eyJhbGciOi..." autocomplete="off" />
+
+	<h2>Файл и чанки</h2>
+	<label for="chunkKb">Размер чанка (КиБ)</label>
+	<input type="number" id="chunkKb" value="256" min="1" max="10240" />
+	<label for="file">Файл</label>
+	<input type="file" id="file" />
+	<button type="button" id="btnUpload">Загрузить чанками</button>
+
+	<h2>Лог</h2>
+	<pre id="log"></pre>
+
+	<script>
+		const logEl = document.getElementById('log');
+		function log(msg, obj) {
+			const line = typeof obj !== 'undefined' ? `${msg}\n${JSON.stringify(obj, null, 2)}` : String(msg);
+			logEl.textContent += line + '\n\n';
+		}
+
+		function base() {
+			return document.getElementById('baseUrl').value.replace(/\/$/, '');
+		}
+
+		function getToken() {
+			return document.getElementById('token').value.trim();
+		}
+
+		document.getElementById('btnLogin').addEventListener('click', async () => {
+			const email = document.getElementById('email').value.trim();
+			const password = document.getElementById('password').value;
+			try {
+				const res = await fetch(`${base()}/login`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'include',
+					body: JSON.stringify({ email, password }),
+				});
+				const data = await res.json().catch(() => ({}));
+				if (!res.ok) {
+					log('Ошибка входа', data);
+					return;
+				}
+				document.getElementById('token').value = data.accessToken || '';
+				log('Вход OK, токен записан в поле', { user: data.user });
+			} catch (e) {
+				log('Сеть / CORS: ' + e.message);
+			}
+		});
+
+		document.getElementById('btnUpload').addEventListener('click', async () => {
+			const token = getToken();
+			if (!token) {
+				log('Нужен access token: войдите или вставьте JWT.');
+				return;
+			}
+			const input = document.getElementById('file');
+			const file = input.files?.[0];
+			if (!file) {
+				log('Выберите файл.');
+				return;
+			}
+			const chunkKb = Number(document.getElementById('chunkKb').value) || 256;
+			const chunkSize = chunkKb * 1024;
+			const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+			const auth = { Authorization: `Bearer ${token}` };
+
+			logEl.textContent = '';
+			log('Старт', { name: file.name, size: file.size, chunkSize, totalChunks });
+
+			try {
+				const initFd = new FormData();
+				initFd.append(
+					'file',
+					JSON.stringify({
+						original_name: file.name,
+						size: file.size,
+						chunk_size: chunkSize,
+						total_chunks: totalChunks,
+					}),
+				);
+
+				const initRes = await fetch(`${base()}/chunk/init-chunk`, {
+					method: 'POST',
+					headers: auth,
+					body: initFd,
+				});
+				const initData = await initRes.json().catch(() => ({}));
+				if (!initRes.ok) {
+					log('init-chunk ошибка', initData);
+					return;
+				}
+				const uploadId = initData.id;
+				if (!uploadId) {
+					log('Нет id в ответе init', initData);
+					return;
+				}
+				log('init-chunk OK', initData);
+
+				for (let i = 0; i < totalChunks; i++) {
+					const start = i * chunkSize;
+					const end = Math.min(start + chunkSize, file.size);
+					const blob = file.slice(start, end);
+					const fd = new FormData();
+					fd.append('uploadId', uploadId);
+					fd.append('chunk_index', String(i));
+					fd.append('stored_name', file.name);
+					fd.append('file', blob, file.name);
+
+					const res = await fetch(`${base()}/chunk/upload-chunk`, {
+						method: 'POST',
+						headers: auth,
+						body: fd,
+					});
+					const data = await res.json().catch(() => ({}));
+					if (!res.ok) {
+						log(`Чанк ${i + 1}/${totalChunks} ошибка`, data);
+						return;
+					}
+					log(`Чанк ${i + 1}/${totalChunks}`, data);
+				}
+				log('Готово. Итоговый файл (после merge): uploads/' + uploadId + '_' + file.name);
+			} catch (e) {
+				log('Ошибка: ' + e.message);
+			}
+		});
+	</script>
+</body>
+</html>

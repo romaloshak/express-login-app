@@ -21,4 +21,4 @@ export const validateMiddleware = (schema: ZodType) => async (req: Request, res:
 		}
 		next(error);
 	}
-};
+}

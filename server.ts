@@ -11,6 +11,7 @@ import userRoutes from './src/routes/user.routes.js';
 const app: Express = express();
 app.use(express.json());
 app.use(cookieParser());
+app.use(express.static('public'));
 
 app.use('/chunk', fileChunkRoutes);
 app.use('/files', fileRoutes);
