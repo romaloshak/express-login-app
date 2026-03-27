@@ -2,6 +2,8 @@ import type { Response } from 'express';
 import type { AuthRequest } from '../middelwares/auth.middleware.js';
 import * as FileService from '../services/file.service.js';
 
+const SIMPLE_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
 export const uploadFile = async (req: AuthRequest, res: Response) => {
 	try {
 		const userId = req.user?.userId;
@@ -14,6 +16,12 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
 
 		if (!file) {
 			return res.status(400).json({ message: 'Файл не загружен' });
+		}
+
+		if (file.size >= SIMPLE_UPLOAD_MAX_BYTES) {
+			return res.status(413).json({
+				message: 'Файлы от 10 МБ загружайте по чанкам: /chunk/init-chunk и /chunk/upload-chunk.',
+			});
 		}
 
 		const newFile = await FileService.uploadFileInDb({

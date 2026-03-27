@@ -1,45 +1,53 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pipeline } from 'node:stream/promises';
-import { fileURLToPath } from 'node:url'; // Специальная утилита для безопасной склейки
+import { finished } from 'node:stream/promises';
+// import { pipeline } from 'node:stream/promises';
+import { fileURLToPath } from 'node:url';
 
 export async function mergeFiles(uploadId: string, originalName: string, totalChunks: number) {
-	console.log(uploadId, originalName, totalChunks);
-	// 1. Путь, куда сохраним финальный результат
-	// Используем uploadId в названии, чтобы избежать конфликтов имен
 	const __filename = fileURLToPath(import.meta.url);
 	const __dirname = path.dirname(__filename);
 	const finalFilePath = path.join(__dirname, '../../uploads', `${uploadId}.${originalName}`);
 
-	// 2. Создаем "приемник" — поток для записи в финальный файл
 	const writeStream = fs.createWriteStream(finalFilePath);
 
 	try {
-		// 3. Перебираем чанки строго по порядку от 0 до totalChunks
+		// --- Новая реализация: читать чанк целиком → писать в один WriteStream (без повторного pipeline на destination) ---
 		for (let i = 0; i < totalChunks; i++) {
 			const chunkPath = path.join(__dirname, '../../chunks', `${i}.${uploadId}.${originalName}`);
 
-			// Проверяем, существует ли файл чанка (на всякий случай)
 			if (!fs.existsSync(chunkPath)) {
 				throw new Error(`Чанк №${i} не найден по пути: ${chunkPath}`);
 			}
 
-			// 4. Создаем "источник" — поток для чтения текущего чанка
-			const readStream = fs.createReadStream(chunkPath);
-
-			// 5. ГЛАВНАЯ МАГИЯ: pipeline переливает данные из read в write.
-			// { end: false } говорит: "Не закрывай writeStream, когда прочитаешь этот чанк,
-			// потому что в цикле придет следующий!"
-			await pipeline(readStream, writeStream, { end: false });
-
-			// После того как pipeline закончил работу с одним чанком,
-			// readStream закроется автоматически, и цикл пойдет на следующую итерацию.
+			const data = await fs.promises.readFile(chunkPath);
+			const ok = writeStream.write(data);
+			if (!ok) {
+				await new Promise<void>((resolve, reject) => {
+					writeStream.once('drain', resolve);
+					writeStream.once('error', reject);
+				});
+			}
 		}
 
-		// 6. Когда цикл завершен, вручную закрываем финальный файл
 		writeStream.end();
+		await finished(writeStream);
 
-		// 7. Наводим порядок: удаляем временные чанки
+		// --- Старая реализация (pipeline в цикле на один writeStream → MaxListeners при большом числе чанков) ---
+		// for (let i = 0; i < totalChunks; i++) {
+		// 	const chunkPath = path.join(__dirname, '../../chunks', `${i}.${uploadId}.${originalName}`);
+		//
+		// 	if (!fs.existsSync(chunkPath)) {
+		// 		throw new Error(`Чанк №${i} не найден по пути: ${chunkPath}`);
+		// 	}
+		//
+		// 	const readStream = fs.createReadStream(chunkPath);
+		//
+		// 	await pipeline(readStream, writeStream, { end: false });
+		// }
+		//
+		// writeStream.end();
+
 		for (let i = 0; i < totalChunks; i++) {
 			const chunkPath = path.join(__dirname, '../../chunks', `${i}.${uploadId}.${originalName}`);
 			await fs.promises.unlink(chunkPath);
@@ -48,7 +56,6 @@ export async function mergeFiles(uploadId: string, originalName: string, totalCh
 		console.log(`Файл ${originalName} успешно собран!`);
 		return finalFilePath;
 	} catch (error) {
-		// Если что-то пошло не так, закрываем поток записи и пробрасываем ошибку дальше
 		writeStream.destroy();
 		console.error('Ошибка при склейке файла:', error);
 		throw error;

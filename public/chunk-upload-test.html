@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<title>Тест загрузки по чанкам</title>
+	<title>Тест загрузки файлов</title>
 	<style>
 		:root { font-family: system-ui, sans-serif; line-height: 1.45; }
 		body { max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
@@ -15,9 +15,10 @@
 	</style>
 </head>
 <body>
-	<h1>Загрузка файла чанками</h1>
+	<h1>Загрузка файла</h1>
 	<p class="hint">
 		Откройте страницу с того же хоста, что и API (например <code>http://localhost:8000/chunk-upload-test.html</code>), чтобы не упираться в CORS.
+		Файлы <strong>меньше 10 МБ</strong> уходят на <code>POST /files/upload</code>, от <strong>10 МБ</strong> — по чанкам (<code>init-chunk</code> + <code>upload-chunk</code>).
 	</p>
 
 	<label for="baseUrl">Базовый URL API</label>
@@ -37,7 +38,7 @@
 	<input type="number" id="chunkKb" value="256" min="1" max="10240" />
 	<label for="file">Файл</label>
 	<input type="file" id="file" />
-	<button type="button" id="btnUpload">Загрузить чанками</button>
+	<button type="button" id="btnUpload">Загрузить</button>
 
 	<h2>Лог</h2>
 	<pre id="log"></pre>
@@ -79,6 +80,8 @@
 			}
 		});
 
+		const SIMPLE_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
 		document.getElementById('btnUpload').addEventListener('click', async () => {
 			const token = getToken();
 			if (!token) {
@@ -91,13 +94,37 @@
 				log('Выберите файл.');
 				return;
 			}
-			const chunkKb = Number(document.getElementById('chunkKb').value) || 256;
-			const chunkSize = chunkKb * 1024;
-			const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
 			const auth = { Authorization: `Bearer ${token}` };
 
 			logEl.textContent = '';
-			log('Старт', { name: file.name, size: file.size, chunkSize, totalChunks });
+
+			if (file.size < SIMPLE_UPLOAD_MAX_BYTES) {
+				log('Режим: одна загрузка (меньше 10 МБ)', { name: file.name, size: file.size });
+				try {
+					const fd = new FormData();
+					fd.append('file', file, file.name);
+					const res = await fetch(`${base()}/files/upload`, {
+						method: 'POST',
+						headers: auth,
+						body: fd,
+					});
+					const data = await res.json().catch(() => ({}));
+					if (!res.ok) {
+						log('Ошибка /files/upload', data);
+						return;
+					}
+					log('Готово (/files/upload)', data);
+				} catch (e) {
+					log('Ошибка: ' + e.message);
+				}
+				return;
+			}
+
+			const chunkKb = Number(document.getElementById('chunkKb').value) || 256;
+			const chunkSize = chunkKb * 1024;
+			const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+
+			log('Режим: чанки (от 10 МБ)', { name: file.name, size: file.size, chunkSize, totalChunks });
 
 			try {
 				const initFd = new FormData();

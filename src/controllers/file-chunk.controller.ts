@@ -65,19 +65,14 @@ export const uploadFileChunk = async (req: AuthRequest, res: Response) => {
 		});
 
 		if (isComplete) {
-			// 1. Сначала отвечаем клиенту, чтобы он не "висел"
 			await setUploadStatus(uploadId, 'processing');
 			res.status(200).json({ status: 'processing', message: 'Файл получен, идет сборка' });
 
-			// 2. Запускаем склейку в "фоне"
-			// Мы не используем await перед самой функцией в роуте,
-			// чтобы не блокировать ответ, но обрабатываем ошибки внутри самой функции
 			mergeFiles(uploadId, stored_name, total_chunks)
 				.then(async () => {
 					await setUploadStatus(uploadId, 'completed');
 				})
 				.catch(async (_err) => {
-					console.log(_err);
 					await setUploadStatus(uploadId, 'error');
 				});
 		} else {
@@ -102,7 +97,6 @@ export const getUploadStatus = async (req: AuthRequest, res: Response) => {
 			return res.status(404).json({ error: 'Загрузка не найдена' });
 		}
 
-		// Если статус 'completed', можем сразу отдать ссылку на скачивание
 		const response = {
 			status: statusData.status,
 			fileName: statusData.file_name,
